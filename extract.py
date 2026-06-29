@@ -1,9 +1,11 @@
 import urllib.request
 import re
+import random
 
 # 配置目标 URL 和需要保留的国家/地区代码
 URL = "http://zip.cm.edu.kg/all.txt"
-TARGET_COUNTRIES = {"SG", "US", "JP", "KR", "HK"}
+TARGET_COUNTRIES = ["SG", "US", "JP", "KR", "HK"]
+MAX_PER_COUNTRY = 20
 
 def main():
     print(f"正在从 {URL} 获取数据...")
@@ -17,28 +19,43 @@ def main():
         return
 
     lines = content.splitlines()
-    filtered_lines = []
+    
+    # 初始化一个字典，用于按国家分类存储匹配到的行
+    country_groups = {country: [] for country in TARGET_COUNTRIES}
 
-    print("正在筛选指定国家/地区的 IP 数据...")
+    print("正在分类和筛选 IP 数据...")
     for line in lines:
         line_strip = line.strip()
         if not line_strip:
             continue
         
-        # 匹配逻辑：检查当前行是否包含指定的国家代码
-        # 注：此处使用不区分大小写的全字/单词边界匹配，防止误伤（如某域名或备注恰好包含sg）
-        # 如果原始文件格式为 "IP SG" 或 "SG,IP"，该正则均可有效过滤
+        # 检查当前行属于哪一个指定国家
         for country in TARGET_COUNTRIES:
             if re.search(rf'\b{country}\b', line_strip, re.IGNORECASE):
-                filtered_lines.append(line_strip)
+                country_groups[country].append(line_strip)
                 break
 
-    # 将结果写入本地文件
+    filtered_lines = []
+    
+    # 对每个国家的数据进行随机抽样
+    for country, items in country_groups.items():
+        if len(items) > MAX_PER_COUNTRY:
+            # 如果数量超过20个，随机抽取20个
+            sampled_items = random.sample(items, MAX_PER_COUNTRY)
+            print(f"[{country}] 发现 {len(items)} 条数据，已随机保留 {MAX_PER_COUNTRY} 条。")
+        else:
+            # 如果少于或等于20个，全部保留
+            sampled_items = items
+            print(f"[{country}] 发现 {len(items)} 条数据，已全部保留。")
+            
+        filtered_lines.extend(sampled_items)
+
+    # 将最终结果写入本地文件
     output_file = "filtered_ips.txt"
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("\n".join(filtered_lines) + "\n")
     
-    print(f"过滤完成！共保存了 {len(filtered_lines)} 条记录到 {output_file}。")
+    print(f"过滤与随机抽样完成！共保存了 {len(filtered_lines)} 条记录到 {output_file}。")
 
 if __name__ == "__main__":
     main()
