@@ -1,0 +1,51 @@
+name: Extract and Filter IPs
+
+on:
+  schedule:
+    # 每天定时执行 (CRON 定时器基于 UTC 时间，0 0 * * * 表示北京时间 08:00)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # 支持在 GitHub 网页端手动点击按钮运行
+
+permissions:
+  contents: write  # 允许工作流向仓库提交修改后的代码/文件
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. 检出仓库代码
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2. 设置 Python 环境
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-python: '3.10'
+
+    # 3. 运行 Python 脚本提取并过滤 IP
+    - name: Run script
+      run: python extract.py
+
+    # 4. 检查文件是否有变动，并自动提交和推送回仓库
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        
+        # 检查 filtered_ips.txt 是否被创建或修改
+        if [ -f "filtered_ips.txt" ]; then
+          git add filtered_ips.txt
+          
+          # 仅在内容有实际变化时才提交，避免工作流报错
+          if git diff --staged --quiet; then
+            echo "数据未发生变化，无需更新。"
+          else
+            git commit -m "自动更新: 提取并过滤 IP 列表"
+            git push
+          fi
+        else
+          echo "未找到生成的 filtered_ips.txt 文件。"
+        fi
